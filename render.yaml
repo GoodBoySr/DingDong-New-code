@@ -8,6 +8,6 @@ services:
     pythonVersion: 3.11
     envVars:
       - key: DISCORD_BOT_TOKEN
-        value: MTM5MzkzNjE1MzMwNDEwNTAyMQ.GzVfjG.AnChGI4_BCtEU6R1xtc71w3FnsYz5XpR6uyNto
+        value: MTM5MzkzNjE1MzMwNDEwNTAyMQ.GBbH4r.fmyEJmuhK48VGeEbfEywuqo-5ROgHGuTWm73IM
       - key: AI_KEY
         value: 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
