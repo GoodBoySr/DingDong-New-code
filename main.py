@@ -1,73 +1,110 @@
-import discord
-from discord import app_commands
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-import undetected_chromedriver as uc
-import asyncio
-import time
 import os
-from dotenv import load_dotenv
+import time
+import discord
+from discord.ext import commands
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+import undetected_chromedriver as uc
+from flask import Flask
+from threading import Thread
 
-load_dotenv()
-TOKEN = os.getenv("DISCORD_BOT_TOKEN")
+DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
+AI_KEY = os.getenv("AI_KEY")  # Reserved if AI analysis is needed
 
+# Setup Discord bot
 intents = discord.Intents.default()
-bot = discord.Client(intents=intents)
-tree = app_commands.CommandTree(bot)
+bot = commands.Bot(command_prefix='/', intents=intents)
+
+# Background Flask web server for Render or Railway to keep bot alive
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "✅ Bot is running!"
+
+def run_flask():
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080)))
+
+# Start the Flask server in background
+Thread(target=run_flask).start()
 
 @bot.event
 async def on_ready():
-    await tree.sync()
-    print(f'Logged in as {bot.user}')
+    print(f"✅ Logged in as {bot.user}")
 
-@tree.command(name="bypass", description="Bypass protected link")
-@app_commands.describe(link="Enter the protected URL")
-async def bypass_command(interaction: discord.Interaction, link: str):
-    await interaction.response.send_message("Bypassing started...", ephemeral=True)
-    start = time.time()
-
-    print("Opened Headless Browser")
-    options = uc.ChromeOptions()
-    options.headless = True
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    driver = uc.Chrome(options=options)
-    wait = WebDriverWait(driver, 30)
+@bot.command()
+async def bypass(ctx, link: str):
+    start_time = time.time()
+    await ctx.reply("🔄 Processing your link...")
 
     try:
+        # Setup undetected Chrome
+        options = uc.ChromeOptions()
+        options.headless = True
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+
+        driver = uc.Chrome(options=options)
+        print("🌐 Opened Headless Browser")
         driver.get(link)
-        print("anti bot bypassed")
 
-        continue_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), 'continue')]")))
-        continue_button.click()
-        await asyncio.sleep(3)
+        time.sleep(5)
+        print("🛡️ Bypassing Cloudflare...")
 
-        driver.switch_to.window(driver.window_handles[-1])
+        # Wait for 'Continue' button
+        try:
+            continue_button = driver.find_element(By.XPATH, "//button[contains(text(),'Continue')]")
+            continue_button.click()
+            print("➡️ Clicked Continue Button")
+            time.sleep(7)
+        except Exception as e:
+            print("❌ Couldn't find continue button:", e)
+
+        # Grab redirected URL from new tab or current URL
         redirected_url = driver.current_url
-        print(f"Redirected Link: {redirected_url}")
+        if "about:blank" in redirected_url:
+            windows = driver.window_handles
+            driver.switch_to.window(windows[-1])
+            redirected_url = driver.current_url
 
+        print("🔁 Redirected Link:", redirected_url)
+
+        # Open bypass.city
         driver.execute_script("window.open('https://bypass.city');")
         driver.switch_to.window(driver.window_handles[-1])
-        wait.until(EC.presence_of_element_located((By.TAG_NAME, "textarea"))).send_keys(redirected_url)
-        print("Using Bypass.city")
-        wait.until(EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Bypass Link!')]"))).click()
+        time.sleep(5)
 
-        result_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Copy Result')]")))
-        result_button.click()
-        result = driver.find_element(By.TAG_NAME, "textarea").get_attribute("value")
+        # Paste link and click "Bypass Link!"
+        input_box = driver.find_element(By.XPATH, "//input[@placeholder='Paste the link here']")
+        input_box.send_keys(redirected_url)
+        time.sleep(1)
+        input_box.send_keys(Keys.ENTER)
+        print("🚀 Using Bypass.city")
 
-        elapsed = round(time.time() - start, 2)
-        response_private = f"| Results: {result} | RLink: {redirected_url} | Time: {elapsed}s |"
-        response_public = f"| Url whitelisted | Time: {elapsed}s |"
+        # Wait for results and click Copy
+        time.sleep(10)
+        copy_button = driver.find_element(By.XPATH, "//button[contains(text(),'Copy Result')]")
+        copy_button.click()
+        time.sleep(1)
 
-        await interaction.followup.send(content=response_private, ephemeral=True)
-        await interaction.channel.send(content=response_public)
+        # Get result from input box
+        result_url = driver.find_element(By.XPATH, "//input[@id='result']").get_attribute("value")
+        total_time = round(time.time() - start_time, 2)
+
+        # Send private and public response
+        await ctx.author.send(f"| ✅ **Results**: {result_url}\n| 🔗 RLink: {redirected_url}\n| ⏱️ Time: {total_time}s\n| 🤖 Bot: `{bot.user.name}`")
+        await ctx.reply(f"✅ Url whitelisted | Time: {total_time}s")
 
     except Exception as e:
-        print("Error:", e)
-        await interaction.followup.send("An error occurred while bypassing the link.", ephemeral=True)
-    finally:
-        driver.quit()
+        await ctx.reply(f"❌ Error: {str(e)}")
+        print("❌ Exception:", e)
 
-bot.run(TOKEN)
+    finally:
+        try:
+            driver.quit()
+        except:
+            pass
+
+# Start the bot
+bot.run(DISCORD_BOT_TOKEN)
