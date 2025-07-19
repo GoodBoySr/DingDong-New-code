@@ -5,8 +5,9 @@ services:
     plan: free
     buildCommand: "pip install -r requirements.txt"
     startCommand: "python main.py"
+    pythonVersion: 3.11
     envVars:
       - key: DISCORD_BOT_TOKEN
-        value: your-token-here
+        value: MTM5MzkzNjE1MzMwNDEwNTAyMQ.GzVfjG.AnChGI4_BCtEU6R1xtc71w3FnsYz5XpR6uyNto
       - key: AI_KEY
-        value: your-ai-key-here
+        value: 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
