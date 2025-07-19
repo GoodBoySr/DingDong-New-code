@@ -1,5 +1,5 @@
 services:
-  - type: background
+  - type: web
     name: DingDong-New-Code
     env: python
     plan: free
