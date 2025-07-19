@@ -5,6 +5,7 @@ services:
     plan: free
     buildCommand: "pip install -r requirements.txt"
     startCommand: "python main.py"
+    pythonVersion: 3.11
     envVars:
       - key: DISCORD_BOT_TOKEN
         value: ${DISCORD_BOT_TOKEN}
